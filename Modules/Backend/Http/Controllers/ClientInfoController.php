@@ -76,6 +76,7 @@ class ClientInfoController extends Controller
         $params['level'] = get_r_level();
         return \ClientInfoService::clientInfoCountNew($params);
     }
+
     /**
      * 业主详情 - new
      */
@@ -85,6 +86,17 @@ class ClientInfoController extends Controller
         return \ClientInfoService::clientDetail($params);
     }
 
+    /**
+     * 数据统计
+     */
+
+    public function clientInfoCountInfo(Request $request)
+    {
+        $params = $request->input();
+        $params['admin_id'] = get_admin_id();
+        $params['level'] = get_r_level();
+        return \ClientInfoService::clientInfoCountInfo($params);
+    }
 
 
 }

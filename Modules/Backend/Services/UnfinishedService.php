@@ -85,6 +85,12 @@ class UnfinishedService
             $unfinished['data'] = Report::reportListByStatus($params);
             $unfinished['code'] = 1;
             return $unfinished;
+        }else if ($role_id == 1 ){
+            //管理员角色所看到的代办事务（status = 0,3,4）
+            $params['status'] = [0,1,2,3,4,6];
+            $unfinished['data'] = Report::reportListByStatus($params);
+            $unfinished['code'] = 1;
+            return $unfinished;
         }
     }
     /**
@@ -120,6 +126,12 @@ class UnfinishedService
         }else if ($role_id == 4 ){
             //业主角色所看到的已处理事务（status = 0,3,4）
             $params['status'] = [2,6,7];
+            $unfinished['data'] = Report::reportListByStatus($params);
+            $unfinished['code'] = 1;
+            return $unfinished;
+        }else if ($role_id == 1 ){
+            //管理员角色所看到的已处理事务（status = 0,3,4）
+            $params['status'] = [0,1,2,3,4,5,6,7];
             $unfinished['data'] = Report::reportListByStatus($params);
             $unfinished['code'] = 1;
             return $unfinished;

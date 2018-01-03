@@ -2,7 +2,7 @@
 /**
  * 登录记录表
  * Author: CK
- * Date: 2017/12/7
+ * Date: 2017/12/6
  */
 
 namespace Modules\Backend\Models;

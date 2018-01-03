@@ -20,7 +20,8 @@ class WorkScheduleService
      * @param $params ['schedule_date'] 某一周的某一天 年-月-日
      * @return array
      */
-    public function weekScheduleAdd($params){
+    public function weekScheduleAdd($params)
+    {
         $validator = \Validator::make(
             $params,
             \Config::get('validator.schedule.work_schedule.week-add'),
@@ -31,65 +32,65 @@ class WorkScheduleService
             return ['code' => 90002, 'msg' => $validator->messages()->first()];
         }
         // 过滤时间参数
-        if(!isDateTime($params['schedule_date'])){
+        if (!isDateTime($params['schedule_date'])) {
             return ['code' => 90002, 'msg' => '非时间参数'];
         }
-        $params['schedule_date'] = date("Y-m-d",strtotime($params['schedule_date']));
+        $params['schedule_date'] = date("Y-m-d", strtotime($params['schedule_date']));
         // 整理一周排班数据
         $week = isWeek($params['schedule_date']);
-        if($week['data'] === "0"){ // 礼拜天 值为0
+        if ($week['data'] === "0") { // 礼拜天 值为0
             $week['data'] = "7";
         }
         $weekParams = [
             $week['data'] => $params['schedule_date']
         ];
         $data = [];
-        for ($i = 1; $i <= 7; $i++){
-            if($week['data'] != $i){
-                $string = $i > $week['data'] ? "+":"-";
-                $string .= abs($i-$week['data'])." day";
-                $string = $params['schedule_date'].' '.$string;
-                $data[] = $weekParams[$i] = date('Y-m-d',strtotime($string));
-            }else{
+        for ($i = 1; $i <= 7; $i++) {
+            if ($week['data'] != $i) {
+                $string = $i > $week['data'] ? "+" : "-";
+                $string .= abs($i - $week['data']) . " day";
+                $string = $params['schedule_date'] . ' ' . $string;
+                $data[] = $weekParams[$i] = date('Y-m-d', strtotime($string));
+            } else {
                 $data[] = $params['schedule_date'];
             }
         }
         $schedule_array = [];
         $number = 7;
         $res = WorkSchedule::scheduleFindIn($data);
-        foreach ($res as $key=>$value){
-            foreach ($data as $k=>$v){
-               if($res[$key]['schedule_date'] == $data[$k]){
-                   $schedule_array[] =  [
-                       'schedule_date' => $res[$key]['schedule_date'],
-                       'schedule_id' => $res[$key]['schedule_id'],
-                   ];
-                   unset($data[$k]);
-                   $number--;
-               }
+        foreach ($res as $key => $value) {
+            foreach ($data as $k => $v) {
+                if ($res[$key]['schedule_date'] == $data[$k]) {
+                    $schedule_array[] = [
+                        'schedule_date' => $res[$key]['schedule_date'],
+                        'schedule_id' => $res[$key]['schedule_id'],
+                    ];
+                    unset($data[$k]);
+                    $number--;
+                }
             }
         }
 
-        foreach ($data as $key=>$value){
+        foreach ($data as $key => $value) {
             $week_data = [
                 'schedule_date' => $value,
-                'schedule_time_begin' => $value." 8:00:00",
-                'schedule_time_end' => $value." 23:59:59",
+                'schedule_time_begin' => $value . " 8:00:00",
+                'schedule_time_end' => $value . " 23:59:59",
             ];
 
             $schedule_id = WorkSchedule::scheduleAdd($week_data);
-            if($schedule_id){
-                $schedule_array[] =  [
+            if ($schedule_id) {
+                $schedule_array[] = [
                     'schedule_date' => $value,
                     'schedule_id' => $schedule_id,
                 ];
             }
         }
 
-        if($number == 0){
-            return ['code'=>10310, 'msg'=>"周排班初始化数据已经完成",'data'=>$schedule_array];
-        }else{
-            return ['code'=>1, 'msg'=>'插入成功', 'data'=>$schedule_array];
+        if ($number == 0) {
+            return ['code' => 10310, 'msg' => "周排班初始化数据已经完成", 'data' => $schedule_array];
+        } else {
+            return ['code' => 1, 'msg' => '插入成功', 'data' => $schedule_array];
         }
     }
 
@@ -101,11 +102,12 @@ class WorkScheduleService
      * @params string $schedule_time_end 排班时间-结束
      * @return array
      */
-    public function weekScheduleEdit($params){
+    public function weekScheduleEdit($params)
+    {
         $res = WorkSchedule::ScheduleEdit($params);
-        if($res){
+        if ($res) {
             return ['code' => 1, 'msg' => '修改成功'];
-        }else{
+        } else {
             return ['code' => 10311, 'msg' => '周排班数据修改失败'];
         }
     }
@@ -122,12 +124,13 @@ class WorkScheduleService
      * @params int $schedule_id 排班id  增加后返回值
      * @return array
      */
-    public function scheduleAdd($params){
-        if( !isset($params['list']) || !isset($params['schedule_begin'])){
-            return ['code'=>90002, 'msg'=>"请添加班次与排班时间数据"];
+    public function scheduleAdd($params)
+    {
+        if (!isset($params['list']) || !isset($params['schedule_begin'])) {
+            return ['code' => 90002, 'msg' => "请添加班次与排班时间数据"];
         }
         // 增加排班
-        $schedule = \WorkScheduleService::weekScheduleAdd(['schedule_date'=>$params['schedule_begin']]);
+        $schedule = \WorkScheduleService::weekScheduleAdd(['schedule_date' => $params['schedule_begin']]);
 //        dd($schedule);
         $schedule_list = $schedule['data'];
         $list = $params['list'];
@@ -135,13 +138,13 @@ class WorkScheduleService
         // 分配排班
         $number = 0;
         $error_list = [];
-        foreach ($list as $key=>$value){
-            if( strstr($list[$key]['time_end'],'24:00:00') == '24:00:00' ){
+        foreach ($list as $key => $value) {
+            if (strstr($list[$key]['time_end'], '24:00:00') == '24:00:00') {
                 $ymd = strstr($list[$key]['time_end'], '24:00:00', TRUE);
-                $list[$key]['time_end'] = $ymd.'23:59:59';
+                $list[$key]['time_end'] = $ymd . '23:59:59';
             }
-            foreach($schedule_list as $k=>$v){
-                if(strtotime($list[$key]['schedule_date']) == strtotime($schedule_list[$k]['schedule_date'])){
+            foreach ($schedule_list as $k => $v) {
+                if (strtotime($list[$key]['schedule_date']) == strtotime($schedule_list[$k]['schedule_date'])) {
                     $data = [
                         'work_name' => $list[$key]['work_name'],
                         'schedule_id' => $schedule_list[$k]['schedule_id'],
@@ -150,28 +153,28 @@ class WorkScheduleService
                         'remark' => $list[$key]['remark'],
                     ];
                     $find = WorkScheduleAllot::scheduleFind($data);
-                    if( $find->isEmpty() ){
+                    if ($find->isEmpty()) {
                         WorkScheduleAllot::scheduleAdd($data);
                         $number++;
                         break;
-                    }else{
+                    } else {
                         $error_list[] = $list[$key];
                     }
                 }
             }
         }
 
-        if($number === 0){
+        if ($number === 0) {
             return [
                 'code' => 10310,
                 'msg' => '存在排班失败数据',
-                'data'=>[
+                'data' => [
                     'list' => $error_list,
                     'schedule_begin' => $params['schedule_begin']
                 ]
             ];
-        }else{
-            return ['code'=>1,'msg'=>'排班成功'];
+        } else {
+            return ['code' => 1, 'msg' => '排班成功'];
         }
 
     }
@@ -188,16 +191,17 @@ class WorkScheduleService
      * @params int $schedule_id 排班id  增加后返回值
      * @return array
      */
-    public function scheduleAddSingle($params){
-        if( !isset($params['list']) || !isset($params['schedule_begin'])){
-            return ['code'=>90002, 'msg'=>"请添加班次与排班时间数据"];
+    public function scheduleAddSingle($params)
+    {
+        if (!isset($params['list']) || !isset($params['schedule_begin'])) {
+            return ['code' => 90002, 'msg' => "请添加班次与排班时间数据"];
         }
 
         // 排班查询
-        $schedule = WorkSchedule::scheduleFind(['schedule_date'=>$params['schedule_begin']]);
-        if(empty($schedule)){
-            return ['code'=>10315, 'msg'=>"排班信息不存在"];
-        }
+        $schedule = WorkSchedule::scheduleFind(['schedule_date' => $params['schedule_begin']]);
+        // if(empty($schedule)){
+        //     return ['code'=>10315, 'msg'=>"排班信息不存在"];
+        // }
         $schedule_id = $schedule['schedule_id'];
         $list = $params['list'];
         //$list = json_decode($params['list'],true);
@@ -205,10 +209,10 @@ class WorkScheduleService
         // 分配排班
         $number = 0;
         $schedule_list = [];
-        foreach ($list as $key=>$value){
-            if( strstr($list[$key]['time_end'],'24:00:00') == '24:00:00' ){
+        foreach ($list as $key => $value) {
+            if (strstr($list[$key]['time_end'], '24:00:00') == '24:00:00') {
                 $ymd = strstr($list[$key]['time_end'], '24:00:00', TRUE);
-                $list[$key]['time_end'] = $ymd.'23:59:59';
+                $list[$key]['time_end'] = $ymd . '23:59:59';
             }
             $data = [
                 'work_name' => $list[$key]['work_name'],
@@ -219,20 +223,20 @@ class WorkScheduleService
             ];
 
             $find = WorkScheduleAllot::scheduleFind($data);
-            if( $find->isEmpty() ){
+            if ($find->isEmpty()) {
                 WorkScheduleAllot::scheduleAdd($data);
                 $number++;
-            }else{
+            } else {
                 $schedule_list[] = $data;
             }
         }
-        if($number > 0){
-            return ['code'=>1,'msg'=>'排班成功'];
-        }else{
+        if ($number > 0) {
+            return ['code' => 1, 'msg' => '排班成功'];
+        } else {
             return [
                 'code' => 10310,
                 'msg' => '排班失败',
-                'data'=>[
+                'data' => [
                     'list' => $schedule_list,
                     'schedule_begin' => $params['schedule_begin']
                 ]
@@ -251,23 +255,24 @@ class WorkScheduleService
      * @params string $time_end   排班时间-结束
      * @return array
      */
-    public function scheduleEdit($params){
+    public function scheduleEdit($params)
+    {
         unset($params['s']);
-        if( !isset($params['schedule_date']) || !isset($params['work_name']) ||!isset($params['allot_id']) ){
+        if (!isset($params['schedule_date']) || !isset($params['work_name']) || !isset($params['allot_id'])) {
             return ['code' => 90001, 'msg' => '必须存在班次时间\用户id\班次id'];
         }
 
         $find = WorkSchedule::scheduleFind($params['schedule_date']);
 
-        if(empty($find)){
-            return ['code' => 10315, 'msg' => '班次信息不存在，获取失败'];
-        }
+//        if (empty($find)) {
+//            return ['code' => 10315, 'msg' => '班次信息不存在，获取失败'];
+//        }
         $params['schedule_id'] = $find['schedule_id'];
         $res = WorkScheduleAllot::scheduleEdit($params);
 
-        if($res){
+        if ($res) {
             return ['code' => 1, 'msg' => '修改成功'];
-        }else{
+        } else {
             return ['code' => 10314, 'msg' => '班次信息修改失败'];
         }
     }
@@ -281,26 +286,27 @@ class WorkScheduleService
      * @params int $day   日
      * @return array
      */
-    public function ScheduleListAll($params){
+    public function ScheduleListAll($params)
+    {
         $data = [];
-        if( isset($params['day']) ){
-            $time = $params['year'].'-'.$params['month'].'-'.$params['day'];
+        if (isset($params['day'])) {
+            $time = $params['year'] . '-' . $params['month'] . '-' . $params['day'];
             $data['time'] = $time;
-        }else if( isset($params['month']) ){
-            $time = $params['year'].'-'.$params['month'].'-01';
-            $begin = date('Y-m-d',strtotime($time.' -1 day'));
+        } else if (isset($params['month'])) {
+            $time = $params['year'] . '-' . $params['month'] . '-01';
+            $begin = date('Y-m-d', strtotime($time . ' -1 day'));
             $data['begin'] = $begin;
-            $end = date('Y-m-d',strtotime($time.' +1 month'));
-            $end = date('Y-m-d',strtotime($end.' -1 day'));
+            $end = date('Y-m-d', strtotime($time . ' +1 month'));
+            $end = date('Y-m-d', strtotime($end . ' -1 day'));
             $data['end'] = $end;
-        }else if( isset($params['year']) ){
-            $time = $params['year'].'-01-01';
-            $begin = date('Y-m-d',strtotime($time.' -1 day'));
+        } else if (isset($params['year'])) {
+            $time = $params['year'] . '-01-01';
+            $begin = date('Y-m-d', strtotime($time . ' -1 day'));
             $data['begin'] = $begin;
-            $end = date('Y-m-d',strtotime($time.' +1 year'));
-            $end = date('Y-m-d',strtotime($end.' -1 day'));
+            $end = date('Y-m-d', strtotime($time . ' +1 year'));
+            $end = date('Y-m-d', strtotime($end . ' -1 day'));
             $data['end'] = $end;
-        }else{
+        } else {
             $data['now'] = date('Y-m-d');
         }
 
@@ -309,9 +315,9 @@ class WorkScheduleService
 
         $res = WorkSchedule::scheduleListAll($data);
 
-        if($res){
+        if ($res) {
             return ['code' => 1, 'data' => $res];
-        }else{
+        } else {
             return ['code' => 10315, 'msg' => '排班、班次信息不存在，获取失败'];
         }
     }
@@ -323,37 +329,77 @@ class WorkScheduleService
      * @params string schedule_date  其中一周的某一天
      * @return array
      */
-    public function WeekScheduleList($params){
-        if( !isset($params['schedule_date']) || empty($params['schedule_date']) ){
-            $params['schedule_date'] = date('Y-m-d H:i:s');
+
+    public function WeekScheduleList($params)
+    {
+        //当前日期
+        $sdefaultDate = date("Y-m-d");
+        $first = 1;
+        $w = date('w', strtotime($sdefaultDate));
+        $week_start = date('Y-m-d', strtotime("$sdefaultDate -" . ($w ? $w - $first : 6) . ' days'));
+        $week_end = date('Y-m-d', strtotime("$week_start +6 days"));
+        $week_start_str = strtotime($week_start);
+        $week_end_str = strtotime($week_end);
+        #所有数据
+        $data = WorkScheduleAllot::get();
+        foreach ($data as $v) {
+            $v['time_begin_str'] = strtotime($v['time_begin']);
+            $v['time_end_str'] = strtotime($v['time_end']);
         }
-        $week = isWeek($params['schedule_date']);
-        if($week['data'] === "0"){ // 礼拜天 值为0
-            $week['data'] = "7";
+        $params['begin_time'] = isset($params['begin_time']) ? $params['begin_time'] : $week_start_str;
+        $params['end_time'] = isset($params['end_time']) ? $params['end_time'] : $week_end_str;
+        $res['begin_week_time'] =  $params['begin_time'];
+        $res['end_week_time'] =  $params['end_time'] ;
+        $res['list'] = $data->where('time_begin_str', '>=', $params['begin_time'])
+            ->where('time_end_str', '<=', $params['end_time'])->all();
+        if ($res['list']) {
+            foreach ($res['list'] as $v) {
+                $arr[] = $v;
+            }
+            $res['list'] = $arr;
         }
+        return ['code' => 1, 'data' => $res];
 
-        $string1 = 7-(int)$week['data'];
-        $string1 = $params['schedule_date']." +".$string1." day";
-        $end = date('Y-m-d',strtotime($string1));
-        $string2 = (int)$week['data']-1;
-        $string2 = $params['schedule_date']." -".$string2." day";
-        $begin = date('Y-m-d',strtotime($string2));
+//
+//        $data = WorkScheduleAllot::all();
+//        foreach ($data as $v) {
+//            $v['time_begin_str'] = strtotime($v['time_begin']);
+//            $v['time_end_str'] = strtotime($v['time_end']);
+//        }
+//        $week = $this->GetWeek($data);
+//        return ['code' => 1, 'data' => $week];
 
-        $data = [
-            'begin' => $begin,
-            'end' => $end,
-        ];
 
-        $data['limit'] = isset($params['limit']) ? $params['limit'] : 7;
-        $data['page'] = isset($params['page']) ? $params['page'] : 1;
-
-        $res = WorkSchedule::weekScheduleList($data);
-
-        if($res){
-            return ['code' => 1, 'data' => $res];
-        }else{
-            return ['code' => 10315, 'msg' => '排班、班次信息不存在，获取失败'];
-        }
+//        if (!isset($params['schedule_date']) || empty($params['schedule_date'])) {
+//            $params['schedule_date'] = date('Y-m-d H:i:s',time());
+//        }
+//        $week = isWeek($params['schedule_date']);
+//        if ($week['data'] === "0") { // 礼拜天 值为0
+//            $week['data'] = "7";
+//        }
+//
+//        $string1 = 7 - (int)$week['data'];
+//        $string1 = $params['schedule_date'] . " +" . $string1 . " day";
+//        $end = date('Y-m-d', strtotime($string1));
+//        $string2 = (int)$week['data'] - 1;
+//        $string2 = $params['schedule_date'] . " -" . $string2 . " day";
+//        $begin = date('Y-m-d', strtotime($string2));
+//
+//        $data = [
+//            'begin' => $begin,
+//            'end' => $end,
+//        ];
+//
+//        $data['limit'] = isset($params['limit']) ? $params['limit'] : 7;
+//        $data['page'] = isset($params['page']) ? $params['page'] : 1;
+//
+//        $res = WorkSchedule::weekScheduleList($data);
+//
+//        if ($res) {
+//            return ['code' => 1, 'data' => $res];
+//        } else {
+//            return ['code' => 10315, 'msg' => '排班、班次信息不存在，获取失败'];
+//        }
     }
 
     /**
@@ -362,13 +408,14 @@ class WorkScheduleService
      * @param $params ['allot_id'] 班次id
      * @return array
      */
-    public function ScheduleDetail($params){
-        if( !isset($params['allot_id']) && !isset($params['work_name']) ){
+    public function ScheduleDetail($params)
+    {
+        if (!isset($params['allot_id']) && !isset($params['work_name'])) {
             return ['code' => 90001, 'msg' => '必须存在用户名或班次id'];
         }
 
         $res = WorkScheduleAllot::scheduleDetail($params);
-        if($res){
+        if ($res) {
 //            $admin_id = $params['admin_id'];
 //            $info1 = Admin::adminDetail($admin_id)->toArray();
 //            $info2 = AdminInfo::adminInfo($admin_id)->toArray();
@@ -385,7 +432,7 @@ class WorkScheduleService
 //            }
 
             return ['code' => 1, 'data' => $res];
-        }else{
+        } else {
             return ['code' => 10315, 'msg' => '排班、班次信息不存在，获取失败'];
         }
     }
@@ -395,12 +442,13 @@ class WorkScheduleService
      * @param $params ['time'] 时间
      * @return array
      */
-    public function ScheduleNow($params){
+    public function ScheduleNow($params)
+    {
 
         $params['time'] = date('Y-m-d');
         $res = WorkScheduleAllot::scheduleNow($params);
 
-        if($res){
+        if ($res) {
 //            foreach ($res as $key=>$value){
 //                $admin_id = $res[$key]['admin_id'];
 //                $info1 = Admin::adminDetail($admin_id)->toArray();
@@ -419,17 +467,18 @@ class WorkScheduleService
 //            }
 
             return ['code' => 1, 'data' => $res];
-        }else{
+        } else {
             return ['code' => 10315, 'msg' => '排班、班次信息不存在，获取失败'];
         }
     }
 
     //班次删除
-    public function ScheduleDelete($params){
+    public function ScheduleDelete($params)
+    {
         $res = WorkScheduleAllot::scheduleDelete($params);
-        if($res){
+        if ($res) {
             return ['code' => 1, 'msg' => '删除成功'];
-        }else{
+        } else {
             return ['code' => 10316, 'msg' => '班次删除失败'];
         }
     }

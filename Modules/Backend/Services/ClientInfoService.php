@@ -8,6 +8,7 @@
 namespace Modules\Backend\Services;
 
 
+use function GuzzleHttp\Psr7\str;
 use Modules\Backend\Models\AdminInfo;
 use  Modules\Backend\Models\Report;
 use Modules\Backend\Models\ReportSystem;
@@ -398,16 +399,175 @@ class ClientInfoService
         }
         return $result;
     }
-    public function clientDetail($params){
-        if(!isset($params['admin_id'])){
-            return ['code'=>90003,'msg'=>'业主ID必填'];
+
+    public function clientDetail($params)
+    {
+        if (!isset($params['admin_id'])) {
+            return ['code' => 90003, 'msg' => '业主ID必填'];
         }
         $data = AdminInfo::clientDetail($params);
-        if(empty($data)){
-            return ['code'=>90003,'msg'=>'该业主不存在或已删除'];
-        }else{
-            return ['code'=>1,'data'=>$data];
+        if (empty($data)) {
+            return ['code' => 90003, 'msg' => '该业主不存在或已删除'];
+        } else {
+            return ['code' => 1, 'data' => $data];
         }
     }
 
+
+    //数据统计  最新
+    public function clientInfoCountInfo($params)
+    {
+        $params['begin_time'] = isset($params['begin_time']) ? $params['begin_time'] : null;
+        $params['end_time'] = isset($params['end_time']) ? $params['end_time'] : null;
+        $params['history'] = isset($params['history']) ? $params['history'] : false;
+        $params['to_admin_id'] = isset($params['to_admin_id']) ? $params['to_admin_id'] : null;
+        try {
+            $data = Report::select('report_id', 'status', 'sys_id', 'to_admin_id', 'created_at')
+                ->where(function ($query) use ($params) {
+                    if ($params['level'] == 1 || $params['level'] == 3) {
+                        return true;
+                    } elseif ($params['level'] == 2) {
+                        return $query->where('to_admin_id', $params['admin_id']);
+                    }
+                })
+                ->where(function ($query) use ($params) {
+                    if ($params['history']) {
+                        return $query->where('status', 4);
+                    }
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+            return ['code' => 1, 'data' => $this->PublicCode($params, $data)];
+        } catch (\Exception $e) {
+            return ['code' => '500', 'msg' => '查询出错'];
+        }
+
+    }
+
+    #公共代码
+    public function PublicCode($params, $data)
+    {
+        foreach ($data as $v) {
+            $v['info'] = ReportSystem::select('report_system.sys_id', 'report_system.web_id', 'report_system.bug_title',
+                'report_system.grade_level', 'web.web_name', 'web.web_link')
+                ->leftJoin('web', 'web.web_id', '=', 'report_system.web_id')
+                ->whereIn('sys_id', array_filter(explode(',', $v['sys_id'])))->get();
+            $v['time'] = strtotime($v['created_at']);
+        }
+        $res = $this->CountData($this->UserBucket($params, $this->TimeBucket($params, $data)));
+        return $res;
+    }
+
+    #时间段筛选
+    public function TimeBucket($params, $data)
+    {
+        if (!empty($params['begin_time']) && !empty($params['end_time'])) {
+            $res = [];
+            foreach ($data as $v) {
+                if ($v['time'] >= $params['begin_time'] && $v['time'] <= $params['end_time']) {
+                    $res[] = $v;
+                }
+            }
+            return $res;
+        } else {
+            return $data;
+        }
+    }
+
+    #用户筛选
+    public function UserBucket($params, $data)
+    {
+        if ($params['level'] == 1 || $params['level'] == 3) {
+            if (!is_null($params['to_admin_id'])) {
+                $res = [];
+                foreach ($data as $v) {
+                    if ($v['to_admin_id'] == (int)$params['to_admin_id']) {
+                        $res[] = $v;
+                    }
+                }
+                return $res;
+            }else{
+                return $data;
+            }
+        } else {
+            return $data;
+        }
+    }
+
+    #筛选数据与格式化
+    public function DataBucket($data)
+    {
+        $res = [];
+        foreach ($data as $v) {
+            foreach ($v['info'] as $k) {
+                $res[] = $k;
+            }
+        }
+        foreach ($res as $v) {
+            $v['bug_title_list'] = explode('|', $v['bug_title']);
+        }
+        foreach ($res as $v) {
+            $v['high_risk'] = $v['bug_title_list'][0];
+            $v['middle_risk'] = $v['bug_title_list'][1];
+            $v['low_risk'] = $v['bug_title_list'][2];
+        }
+        return $res;
+    }
+
+    #数据统计
+    public function CountData($data)
+    {
+        $res = $this->DataBucket($data);
+        $arr = [];
+        for ($i = 0; $i < count($res); $i++) {
+            $arr[] = $res[$i]['web_id'];
+        }
+        $arr = array_unique($arr);
+        $new = [];
+        foreach ($res as $v) {
+            foreach ($arr as $k) {
+                if ($v['web_id'] == $k) {
+                    $new[$v['web_name']][] = $v;
+                }
+            }
+        }
+        #漏洞情况
+        foreach ($new as $m => $v) {
+            $count[$m]['bug'] = [
+                'high_risk' => 0,
+                'middle_risk' => 0,
+                'low_risk' => 0,
+            ];
+            $count[$m]['grade'] = [
+                'first_level_count' => 0,
+                'second_level_count' => 0,
+                'third_level_count' => 0,
+                'fourth_level_count' => 0,
+                'fifth_level_count' => 0,
+            ];
+            foreach ($v as $k) {
+                $count[$m]['bug']['high_risk'] += $k['high_risk'];
+                $count[$m]['bug']['middle_risk'] += $k['middle_risk'];
+                $count[$m]['bug']['low_risk'] += $k['low_risk'];
+                switch ($k['grade_level']) {
+                    case 1;
+                        $count[$m]['grade']['first_level_count'] += 1;
+                        break;
+                    case 2;
+                        $count[$m]['grade']['second_level_count'] += 1;
+                        break;
+                    case 3;
+                        $count[$m]['grade']['third_level_count'] += 1;
+                        break;
+                    case 4;
+                        $count[$m]['grade']['fourth_level_count'] += 1;
+                        break;
+                    case 5;
+                        $count[$m]['grade']['fifth_level_count'] += 1;
+                        break;
+                }
+            }
+        }
+        return $count;
+    }
 }
